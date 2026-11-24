@@ -1,12 +1,14 @@
 from typing import Annotated, List, Literal
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class CouncilConfig(BaseSettings):
-    # 🔐 OpenRouter API Key (required)
-    openrouter_api_key: str = Field(validation_alias="OPENROUTER_API_KEY")
+    # API key for the endpoint below; optional for local servers such as Ollama
+    openrouter_api_key: str = Field(
+        default="", validation_alias=AliasChoices("COUNCIL_API_KEY", "OPENROUTER_API_KEY")
+    )
 
     # 🤖 Models list
     # NoDecode: read the env value as plain text (comma-separated), not JSON
@@ -29,8 +31,10 @@ class CouncilConfig(BaseSettings):
     max_retries: int = Field(default=3, validation_alias="COUNCIL_MAX_RETRIES")
     timeout: float = Field(default=30.0, validation_alias="COUNCIL_TIMEOUT")
 
-    # 🌐 OpenRouter base URL
-    api_base: str = "https://openrouter.ai/api/v1"
+    # Any OpenAI-compatible endpoint, e.g. http://localhost:11434/v1 for Ollama
+    api_base: str = Field(
+        default="https://openrouter.ai/api/v1", validation_alias="COUNCIL_API_BASE"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -56,7 +60,9 @@ def get_config() -> CouncilConfig:
     if _config_cache is None:
         _config_cache = CouncilConfig()
 
-        if not _config_cache.openrouter_api_key:
-            raise ValueError("OPENROUTER_API_KEY is missing. Add it to your .env file.")
+        if not _config_cache.openrouter_api_key and "openrouter.ai" in _config_cache.api_base:
+            raise ValueError(
+                "OPENROUTER_API_KEY is missing. Add it to .env, or set COUNCIL_API_BASE to a local server."
+            )
 
     return _config_cache

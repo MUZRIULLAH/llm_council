@@ -111,7 +111,8 @@ Neo will execute `python main.py`, monitor execution, open `council_answer.md` a
 
 | Variable              | Description                   | Default                                                  |
 | --------------------- | ----------------------------- | -------------------------------------------------------- |
-| `OPENROUTER_API_KEY`  | OpenRouter API key (required) | —                                                        |
+| `OPENROUTER_API_KEY`  | OpenRouter API key (also read as `COUNCIL_API_KEY`); required only for OpenRouter | —                                                        |
+| `COUNCIL_API_BASE`    | OpenAI-compatible endpoint; `http://localhost:11434/v1` for Ollama (no key needed) | `https://openrouter.ai/api/v1`                           |
 | `COUNCIL_MODELS`      | Comma-separated model IDs     | `openai/gpt-4.1-mini,qwen/qwen3.5-plus-02-15,z-ai/glm-5` |
 | `COUNCIL_STRATEGY`    | Consensus strategy            | `synthesis`                                              |
 | `COUNCIL_JUDGE_MODEL` | Model that writes the synthesis | first model in `COUNCIL_MODELS`                        |

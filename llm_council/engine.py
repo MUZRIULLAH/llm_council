@@ -43,7 +43,7 @@ class Council:
     def __init__(self, config=None):
         self.config = config or get_config()
         self.judge_client = AsyncOpenAI(
-            api_key=self.config.openrouter_api_key,
+            api_key=self.config.openrouter_api_key or "none",  # local servers ignore it
             base_url=self.config.api_base,
             max_retries=self.config.max_retries,
         )

@@ -57,3 +57,26 @@ def test_judge_model_used_for_synthesis_and_defaults_to_first():
         council.judge_client.chat.completions.create = create
         asyncio.run(council.query("q"))
         assert create.call_args.kwargs["model"] == expected
+
+
+def test_local_endpoint_needs_no_key(monkeypatch):
+    import llm_council.config as cfg
+
+    for var in ("OPENROUTER_API_KEY", "COUNCIL_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("COUNCIL_API_BASE", "http://localhost:11434/v1")
+    monkeypatch.setattr(cfg, "_config_cache", None)
+    monkeypatch.setitem(cfg.CouncilConfig.model_config, "env_file", None)
+    council = Council(cfg.get_config())
+    assert str(council.judge_client.base_url).startswith("http://localhost:11434")
+
+
+def test_openrouter_still_requires_key(monkeypatch):
+    import llm_council.config as cfg
+
+    for var in ("OPENROUTER_API_KEY", "COUNCIL_API_KEY", "COUNCIL_API_BASE"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(cfg, "_config_cache", None)
+    monkeypatch.setitem(cfg.CouncilConfig.model_config, "env_file", None)
+    with pytest.raises(ValueError):
+        cfg.get_config()
