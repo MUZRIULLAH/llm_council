@@ -1,4 +1,5 @@
 import os
+import sys
 import asyncio
 from dotenv import load_dotenv
 from llm_council.engine import Council
@@ -13,7 +14,8 @@ async def main():
     
     print(f"Active Council Models: {config.council_models}")
     
-    query = "What are the core benefits of a multi-LLM orchestration pattern like a 'Council' for complex reasoning tasks?"
+    # Usage: python main.py "your question"  (falls back to the demo question)
+    query = " ".join(sys.argv[1:]) or "What are the core benefits of a multi-LLM orchestration pattern like a 'Council' for complex reasoning tasks?"
     print(f"\nQuerying the LLM Council: {query}\n")
     
     try:
@@ -23,7 +25,7 @@ async def main():
             print(f"Error: {result['error']}")
             return
 
-        output_file = "council_answer.md"
+        output_file = os.getenv("COUNCIL_OUTPUT_FILE", "council_answer.md")
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(f"# Council Query: {query}\n\n")
             f.write(f"## Aggregated Response ({result['strategy']})\n\n{result['final_answer']}\n\n")

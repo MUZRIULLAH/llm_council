@@ -114,6 +114,7 @@ Neo will execute `python main.py`, monitor execution, open `council_answer.md` a
 | `OPENROUTER_API_KEY`  | OpenRouter API key (required) | —                                                        |
 | `COUNCIL_MODELS`      | Comma-separated model IDs     | `openai/gpt-4.1-mini,qwen/qwen3.5-plus-02-15,z-ai/glm-5` |
 | `COUNCIL_STRATEGY`    | Consensus strategy            | `synthesis`                                              |
+| `COUNCIL_JUDGE_MODEL` | Model that writes the synthesis | first model in `COUNCIL_MODELS`                        |
 | `COUNCIL_MAX_RETRIES` | Max retry attempts per model  | `3`                                                      |
 | `COUNCIL_TIMEOUT`     | Request timeout in seconds    | `30.0`                                                   |
 
@@ -134,7 +135,7 @@ result = await council.query("Your question here")
 
 ## Consensus Strategies
 
-**Synthesis (default)** — A judge model (first in `COUNCIL_MODELS`) receives all responses and synthesizes a unified answer. Best for complex reasoning, code review, research, and creative tasks.
+**Synthesis (default)** — A judge model (`COUNCIL_JUDGE_MODEL`, or the first in `COUNCIL_MODELS` if unset) receives all responses and synthesizes a unified answer. Pick a judge outside the council so it does not grade its own answer. Best for complex reasoning, code review, research, and creative tasks.
 
 **Voting** — The most common response wins. Best for objective facts, classification, and multiple-choice questions. Faster (no extra API call).
 

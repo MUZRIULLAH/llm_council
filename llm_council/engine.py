@@ -1,12 +1,12 @@
 import asyncio
 import logging
+from collections import Counter
 from typing import Any, Dict, List, Optional
 
 from openai import AsyncOpenAI
 
 from .config import get_config
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -18,22 +18,21 @@ class Response:
 
 
 class CouncilMember:
-    def __init__(self, model_name: str, api_key: str, base_url: str):
+    def __init__(self, model_name: str, client: AsyncOpenAI):
         self.model_name = model_name
-        self.client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        self.client = client
 
     async def get_response(
         self, messages: List[Dict[str, str]], timeout: float
     ) -> Optional[Response]:
         try:
-            response = await asyncio.wait_for(
-                self.client.chat.completions.create(
-                    model=self.model_name, messages=messages, timeout=timeout
-                ),
-                timeout=timeout + 5,
+            # The client retries with backoff (max_retries); timeout applies per attempt.
+            response = await self.client.chat.completions.create(
+                model=self.model_name, messages=messages, timeout=timeout
             )
             content = response.choices[0].message.content
-            print()
+            if not content:
+                raise ValueError("empty response")
             return Response(model=self.model_name, content=content, raw=response)
         except Exception as e:
             logger.error(f"Error getting response from {self.model_name}: {e}")
@@ -43,13 +42,14 @@ class CouncilMember:
 class Council:
     def __init__(self, config=None):
         self.config = config or get_config()
-        self.members = [
-            CouncilMember(m, self.config.openrouter_api_key, self.config.api_base)
-            for m in self.config.council_models
-        ]
         self.judge_client = AsyncOpenAI(
-            api_key=self.config.openrouter_api_key, base_url=self.config.api_base
+            api_key=self.config.openrouter_api_key,
+            base_url=self.config.api_base,
+            max_retries=self.config.max_retries,
         )
+        self.members = [
+            CouncilMember(m, self.judge_client) for m in self.config.council_models
+        ]
 
     async def query(
         self, prompt: str, system_prompt: str = "You are a helpful assistant."
@@ -72,10 +72,8 @@ class Council:
 
         if self.config.council_strategy == "synthesis":
             final_answer = await self._synthesize(prompt, valid_responses)
-        elif self.config.council_strategy == "voting":
+        else:  # "voting"; config rejects anything else
             final_answer = self._vote(valid_responses)
-        else:
-            final_answer = valid_responses[0].content  # Fallback
 
         return {
             "final_answer": final_answer,
@@ -97,8 +95,8 @@ class Council:
         )
 
         try:
-            # Using the first model in the list as the synthesis judge or gpt-4o if available
-            judge_model = self.config.council_models[0]
+            # A judge outside the council avoids grading its own answer
+            judge_model = self.config.judge_model or self.config.council_models[0]
             resp = await self.judge_client.chat.completions.create(
                 model=judge_model,
                 messages=[
@@ -108,6 +106,7 @@ class Council:
                     },
                     {"role": "user", "content": synthesis_prompt},
                 ],
+                timeout=self.config.timeout,
             )
             return resp.choices[0].message.content
         except Exception as e:
@@ -115,9 +114,12 @@ class Council:
             return responses[0].content  # Fallback to first valid response
 
     def _vote(self, responses: List[Response]) -> str:
-        from collections import Counter
+        # Normalise case, spacing and trailing punctuation so "Paris." and "paris"
+        # count as one vote. shortcut: still exact-match, so it only suits short
+        # answers (facts, labels, multiple choice); long prose should use synthesis.
+        def key(text: str) -> str:
+            return " ".join(text.lower().split()).rstrip(".!")
 
-        contents = [r.content.strip() for r in responses]
-        counts = Counter(contents)
-        most_common = counts.most_common(1)[0][0]
-        return most_common
+        counts = Counter(key(r.content) for r in responses)
+        top = counts.most_common(1)[0][0]
+        return next(r.content.strip() for r in responses if key(r.content) == top)

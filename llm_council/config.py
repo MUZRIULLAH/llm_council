@@ -1,7 +1,7 @@
-from typing import List
+from typing import Annotated, List, Literal
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class CouncilConfig(BaseSettings):
@@ -9,7 +9,8 @@ class CouncilConfig(BaseSettings):
     openrouter_api_key: str = Field(validation_alias="OPENROUTER_API_KEY")
 
     # 🤖 Models list
-    council_models: List[str] = Field(
+    # NoDecode: read the env value as plain text (comma-separated), not JSON
+    council_models: Annotated[List[str], NoDecode] = Field(
         default_factory=lambda: [
             "openai/gpt-4.1-mini",
             "qwen/qwen3.5-plus-02-15",
@@ -19,9 +20,11 @@ class CouncilConfig(BaseSettings):
     )
 
     # 🧠 Strategy
-    council_strategy: str = Field(
+    council_strategy: Literal["synthesis", "voting"] = Field(
         default="synthesis", validation_alias="COUNCIL_STRATEGY"
     )
+    # Model that merges the answers in "synthesis"; empty = first council model
+    judge_model: str = Field(default="", validation_alias="COUNCIL_JUDGE_MODEL")
 
     max_retries: int = Field(default=3, validation_alias="COUNCIL_MAX_RETRIES")
     timeout: float = Field(default=30.0, validation_alias="COUNCIL_TIMEOUT")
